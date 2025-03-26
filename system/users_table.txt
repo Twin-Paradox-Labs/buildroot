@@ -1,0 +1,3 @@
+# name uid group gid passwd home shell groups comment
+sshd 74 sshd 74 - /var/empty /bin/false - -
+laser 1000 laser 1000 - /home/laser /bin/sh - -

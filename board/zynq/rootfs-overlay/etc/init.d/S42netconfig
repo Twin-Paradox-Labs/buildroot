@@ -1,0 +1,48 @@
+#!/bin/sh
+
+# All scripts in the following directory with the following naming convention are run automatically at boot up: /etc/init.d/SXXname
+
+# This script configures the Zynq IP from the IP address set in the zynq_ip_confit.txt file
+# That is stored on the boot parition of the SD card. It firsts waits for the parition to be
+# available, then mounts it to /boot. At the end it unmounts it from /boot
+
+# TODO, make it so that if not zynq_ip_config.txt is found, then set IP to default 192.168.1.100
+
+CONFIG_FILE="/boot/zynq_ip_config.txt"
+BOOT_MOUNT="/boot"
+BOOT_DEV="/dev/mmcblk0p1"
+
+echo "[netconfig] Setting up static IP from $CONFIG_FILE"
+
+# Wait for the block device to appear
+for i in $(seq 1 10); do
+    if [ -b "$BOOT_DEV" ]; then
+        echo "[netconfig] Found $BOOT_DEV"
+        break
+    fi
+    echo "[netconfig] Waiting for $BOOT_DEV..."
+    sleep 1
+done
+
+# Now try mounting
+mkdir -p $BOOT_MOUNT
+if mount -t vfat "$BOOT_DEV" "$BOOT_MOUNT"; then
+    echo "[netconfig] Mounted $BOOT_DEV to $BOOT_MOUNT"
+else
+    echo "[netconfig] Failed to mount $BOOT_DEV"
+    exit 1
+fi
+
+# Check for config file
+if [ -f "$CONFIG_FILE" ]; then
+    echo "[netconfig] Found $CONFIG_FILE, applying config"
+    . "$CONFIG_FILE"
+    ifconfig eth0 "$IPADDR" netmask "$NETMASK" up
+    route add default gw "$GATEWAY"
+else
+    echo "[netconfig] Config file not found: $CONFIG_FILE"
+fi
+
+umount $BOOT_MOUNT
+rmdir $BOOT_MOUNT
+exit 0

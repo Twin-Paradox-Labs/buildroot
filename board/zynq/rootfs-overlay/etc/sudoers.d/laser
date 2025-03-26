@@ -1,0 +1,1 @@
+laser ALL=(ALL) NOPASSWD: /sbin/reboot, /usr/local/bin/*

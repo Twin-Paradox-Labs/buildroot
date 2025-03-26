@@ -1,0 +1,6 @@
+#!/bin/sh
+
+DATA_LOGGER_PATH="/usr/local/bin/data_logger_driver.ko"
+
+echo "[custom_drivers] Loading logger module with insmod..."
+insmod "$DATA_LOGGER_PATH"
