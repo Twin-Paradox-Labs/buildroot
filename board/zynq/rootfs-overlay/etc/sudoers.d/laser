@@ -1,1 +1,1 @@
-laser ALL=(ALL) NOPASSWD: /sbin/reboot, /usr/local/bin/*
+laser ALL=(ALL) NOPASSWD: /sbin/reboot, /usr/local/bin/*, /bin/date

@@ -1,12 +1,21 @@
 #!/bin/bash
 
 source dac2_config.sh
-# Define constants
+
+# DEFINE CONSTANTS
 SPI_FREQ_HZ=2000000  # AD5791 SPI_CLK (2 MHz)
 SWEEP_GEN_FREQ_HZ=1000000  # Frequency of divided_clk in sweep_generator (1 MHz)
 
+# The output limiter module takes a 24-bit signed number for the upper and lower limits:
+MIN_24BIT=-$((2**23))
+MAX_24BIT=$((2**23 - 1))
+# The sweep module takes a 20-bit signed number for the max and min values:
+MIN_20BIT=-$((2**19))
+MAX_20BIT=$((2**19 - 1))
+
+# DAC1 has an output range of +/-1V (before the gain amplifer)
 OUTPUT_RANGE_MAX=1.0
-OUTPUT_RANGE_MIN=-$OUTPUT_RANGE_MAX
+OUTPUT_RANGE_MIN=-1.0
 
 # Prompt the user for input parameters
 read -p "Enter the CENTER value: " CENTER
@@ -31,12 +40,9 @@ if (( $(echo "$minVoltage < $OUTPUT_RANGE_MIN" | bc -l) )); then
     minVoltage=$OUTPUT_RANGE_MIN
 fi
 
-# Map a value from [-5.0, 5.0] to [-524288, 524287]
-DAC_min=-524288  # Digital min value
-DAC_max=524287   # Digital max value
-
-digitalSweepMax=$(echo "$DAC_min + (($maxVoltage - $OUTPUT_RANGE_MIN) * ($DAC_max - $DAC_min)) / ($OUTPUT_RANGE_MAX - $OUTPUT_RANGE_MIN)" | bc)
-digitalSweepMin=$(echo "$DAC_min + (($minVoltage - $OUTPUT_RANGE_MIN) * ($DAC_max - $DAC_min)) / ($OUTPUT_RANGE_MAX - $OUTPUT_RANGE_MIN)" | bc)
+# Do a linear remapping of the sweep voltage value [0.0, 5.0] to the 20-bit digital value range [-524288, 524287]:
+digitalSweepMax=$(echo "$MIN_20BIT + (($maxVoltage - $OUTPUT_RANGE_MIN) * ($MAX_20BIT - $MIN_20BIT)) / ($OUTPUT_RANGE_MAX - $OUTPUT_RANGE_MIN)" | bc)
+digitalSweepMin=$(echo "$MIN_20BIT + (($minVoltage - $OUTPUT_RANGE_MIN) * ($MAX_20BIT - $MIN_20BIT)) / ($OUTPUT_RANGE_MAX - $OUTPUT_RANGE_MIN)" | bc)
 
 # Convert digital values to integers
 digitalSweepMax=$(printf "%.0f" "$digitalSweepMax")
@@ -46,15 +52,19 @@ digitalSweepMin=$(printf "%.0f" "$digitalSweepMin")
 stepSize=$(echo "($FREQUENCY * ($digitalSweepMax - $digitalSweepMin) * $SPI_FREQ_HZ) / ($SWEEP_GEN_FREQ_HZ^2)" | bc)
 stepSize=$(printf "%.0f" "$stepSize")  # Convert to integer
 
-# For now, make the limit block have no clipping
-limitMinVal=0x8000000
-limitMaxVal=0x7ffffff
-
 # Debugging Output (Optional)
 echo "Analog Center: $CENTER"
 echo "Analog Amplitude: $AMPLITUDE"
 echo "Analog Frequency (Hz): $FREQUENCY"
 echo "Step Size: $stepSize"
+
+# By default set the limit module to the full output range of the 20-bit DAC:
+maxLimit=1.0
+minLimit=-1.0
+
+# Do a linear remapping of the limiter voltage value [0.0, 5.0] to the 24-bit digital value [-8388608, 8388607]:
+limitMaxVal=$(echo "$MIN_24BIT + (($maxLimit - $OUTPUT_RANGE_MIN) * ($MAX_24BIT - $MIN_24BIT)) / ($OUTPUT_RANGE_MAX - $OUTPUT_RANGE_MIN)" | bc)
+limitMinVal=$(echo "$MIN_24BIT + (($minLimit - $OUTPUT_RANGE_MIN) * ($MAX_24BIT - $MIN_24BIT)) / ($OUTPUT_RANGE_MAX - $OUTPUT_RANGE_MIN)" | bc)
 
 # Write to Output limit max and min values to BRAM
 devmem2_write 597 $((limitMaxVal & 0xFFFF))          # Sets the limiter max_in[15:0] at bram addr = 725

@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # This script is meant to be run on the Zynq, not on the server
-# This is read the version registers and convert to human readable format
-# These verison register get populated through the Makefile and build.tcl scripts, 
+# This will read the version registers and convert to human readable format
+# FPGA verison registers get populated through the Makefile and build.tcl scripts, 
 # if you build using the Vivado GUI these will not be populated
 
 VERSION_REG_BASE_ADDR=$(get_dt_addr version_reg)
